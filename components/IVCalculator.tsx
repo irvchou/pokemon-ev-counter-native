@@ -1,10 +1,11 @@
-import { Picker } from '@react-native-picker/picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { Pokemon, PokemonDetails } from '../types';
@@ -41,6 +42,7 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
   });
   const [nature, setNature] = useState('neutral');
   const [calculatedIVs, setCalculatedIVs] = useState<Record<string, IVRange>>({});
+  const [showNatureModal, setShowNatureModal] = useState(false);
 
   const natures = useMemo(() => [
     { value: 'neutral', label: 'Neutral', boost: null, reduce: null },
@@ -234,22 +236,15 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
         
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Nature:</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={nature}
-              onValueChange={(itemValue: string) => setNature(itemValue)}
-              style={styles.picker}
-              itemStyle={styles.pickerItem}
-            >
-              {natures.map((natureOption) => (
-                <Picker.Item
-                  key={natureOption.value}
-                  label={natureOption.label}
-                  value={natureOption.value}
-                />
-              ))}
-            </Picker>
-          </View>
+          <TouchableOpacity 
+            style={styles.dropdownButton}
+            onPress={() => setShowNatureModal(true)}
+          >
+            <Text style={styles.dropdownText}>
+              {natures.find(n => n.value === nature)?.label || 'Select Nature'}
+            </Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.summaryRow}>
@@ -307,6 +302,46 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
           );
         })}
       </ScrollView>
+      
+      <Modal
+        visible={showNatureModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowNatureModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Nature</Text>
+              <TouchableOpacity onPress={() => setShowNatureModal(false)}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.natureList}>
+              {natures.map((item: any) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.natureOption,
+                    nature === item.value && styles.selectedNatureOption
+                  ]}
+                  onPress={() => {
+                    setNature(item.value);
+                    setShowNatureModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.natureOptionText,
+                    nature === item.value && styles.selectedNatureOptionText
+                  ]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -434,13 +469,90 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 6,
     backgroundColor: '#f8f9fa',
+    height: 40,
+    justifyContent: 'center',
   },
   picker: {
-    height: 36,
+    height: 40,
+    width: '100%',
   },
   pickerItem: {
-    height: 36,
     fontSize: 12,
+    color: '#333',
+  },
+  dropdownButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    height: 40,
+  },
+  dropdownText: {
+    fontSize: 12,
+    color: '#333',
+    flex: 1,
+  },
+  dropdownArrow: {
+    fontSize: 12,
+    color: '#667eea',
+    marginLeft: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '80%',
+    minHeight: 300,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  modalCloseButton: {
+    fontSize: 18,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  natureList: {
+    flex: 1,
+    maxHeight: 400,
+  },
+  natureOption: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedNatureOption: {
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+  },
+  natureOptionText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectedNatureOptionText: {
+    color: '#667eea',
+    fontWeight: '600',
   },
 });
 
