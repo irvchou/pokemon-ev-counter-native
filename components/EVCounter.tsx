@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  Dimensions,
+  View,
 } from 'react-native';
+import { pokemonAPI, PokemonDetails } from '../services/pokemonAPI';
 import { Pokemon } from '../types';
 
 interface EVCounterProps {
@@ -17,6 +20,25 @@ interface EVCounterProps {
 const { width } = Dimensions.get('window');
 
 const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) => {
+  const [pokemonDetails, setPokemonDetails] = useState<PokemonDetails | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    const fetchPokemonDetails = async () => {
+      try {
+        setLoadingDetails(true);
+        const details = await pokemonAPI.getPokemonDetails(pokemon.name);
+        setPokemonDetails(details);
+      } catch (error) {
+        console.error('Error fetching Pokemon details:', error);
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+
+    fetchPokemonDetails();
+  }, [pokemon.name]);
+
   const maxEVs = 252;
   const maxTotalEVs = 510;
 
@@ -81,7 +103,23 @@ const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) =>
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.pokemonName}>{formatPokemonName(pokemon.name)}</Text>
+        <View style={styles.pokemonInfo}>
+          {loadingDetails ? (
+            <View style={styles.imagePlaceholder}>
+              <ActivityIndicator size="small" color="#667eea" />
+            </View>
+          ) : pokemonDetails?.sprites.front_default ? (
+            <Image 
+              source={{ uri: pokemonDetails.sprites.front_default }}
+              style={styles.pokemonImage}
+            />
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Text style={styles.placeholderText}>No Image</Text>
+            </View>
+          )}
+          <Text style={styles.pokemonName}>{formatPokemonName(pokemon.name)}</Text>
+        </View>
         <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(pokemon.id)}>
           <Text style={styles.deleteButtonText}>Delete</Text>
         </TouchableOpacity>
@@ -150,45 +188,71 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 20,
+    padding: 15,
     margin: 10,
     borderWidth: 2,
     borderColor: '#e0e0e0',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
+  },
+  pokemonInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  pokemonImage: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+    resizeMode: 'contain',
+  },
+  imagePlaceholder: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 8,
+    color: '#999',
+    textAlign: 'center',
   },
   pokemonName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#333',
   },
   deleteButton: {
     backgroundColor: '#ff4757',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
   },
   deleteButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   summaryContainer: {
-    marginBottom: 25,
+    marginBottom: 20,
   },
   totalEVsText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   progressBar: {
     width: '100%',
-    height: 8,
+    height: 6,
     backgroundColor: '#e0e0e0',
     borderRadius: 4,
     overflow: 'hidden',
@@ -201,30 +265,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 25,
+    marginBottom: 20,
   },
   statCard: {
-    width: (width - 60) / 2,
+    width: '48%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    padding: 12,
+    marginBottom: 10,
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 16,
+    fontSize: 14,
+    marginBottom: 8,
     fontWeight: '600',
-    marginBottom: 10,
   },
   evControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   evButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -238,20 +302,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   evButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
   },
   evValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    minWidth: 30,
+    minWidth: 25,
     textAlign: 'center',
   },
   evBar: {
     width: '100%',
-    height: 6,
+    height: 5,
     backgroundColor: '#e0e0e0',
     borderRadius: 3,
     overflow: 'hidden',
@@ -261,13 +325,14 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     backgroundColor: '#ff4757',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
     alignItems: 'center',
+    width: '100%',
   },
   resetButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

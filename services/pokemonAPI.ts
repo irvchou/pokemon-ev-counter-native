@@ -1,7 +1,9 @@
 import axios from 'axios';
-import { PokemonListItem, PokemonResponse, PokemonDetails } from '../types';
+import { PokemonDetails, PokemonListItem, PokemonResponse } from '../types';
 
 const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2';
+
+export { PokemonDetails };
 
 export const pokemonAPI = {
   async getAllPokemon(): Promise<PokemonListItem[]> {

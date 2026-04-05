@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  Alert,
+    Alert,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pokemon } from '../types';
-import PokemonForm from './PokemonForm';
 import EVCounter from './EVCounter';
+import IVCalculator from './IVCalculator';
+import PokemonForm from './PokemonForm';
 
 const HomeScreen: React.FC = () => {
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedPokemon, setSelectedPokemon] = useState<string | null>(null);
   const [showEVCounter, setShowEVCounter] = useState(false);
+  const [selectedPokemonDetails, setSelectedPokemonDetails] = useState<any>(null);
 
   const addPokemon = (pokemonData: { name: string }) => {
     const newPokemon: Pokemon = {
@@ -52,6 +56,7 @@ const HomeScreen: React.FC = () => {
             if (selectedPokemon === id) {
               setSelectedPokemon(null);
               setShowEVCounter(false);
+              setSelectedPokemonDetails(null);
             }
           },
         },
@@ -61,14 +66,27 @@ const HomeScreen: React.FC = () => {
 
   const selectedPokemonData = pokemons.find(p => p.id === selectedPokemon);
 
-  const handlePokemonSelect = (pokemonId: string) => {
+  const handlePokemonSelect = async (pokemonId: string) => {
     setSelectedPokemon(pokemonId);
     setShowEVCounter(true);
+    
+    // Fetch Pokemon details for IV calculator
+    const pokemon = pokemons.find(p => p.id === pokemonId);
+    if (pokemon) {
+      try {
+        const { pokemonAPI } = await import('../services/pokemonAPI');
+        const details = await pokemonAPI.getPokemonDetails(pokemon.name);
+        setSelectedPokemonDetails(details);
+      } catch (error) {
+        console.error('Error fetching Pokemon details:', error);
+      }
+    }
   };
 
   const handleBackToHome = () => {
     setShowEVCounter(false);
     setSelectedPokemon(null);
+    setSelectedPokemonDetails(null);
   };
 
   const formatPokemonName = (name: string): string => {
@@ -90,23 +108,29 @@ const HomeScreen: React.FC = () => {
 
   if (showEVCounter && selectedPokemonData) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.evCounterHeader}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackToHome}>
-            <Text style={styles.backButtonText}>← Back to Homepage</Text>
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
         </View>
-        <EVCounter
-          pokemon={selectedPokemonData}
-          onUpdate={updatePokemon}
-          onDelete={deletePokemon}
-        />
-      </View>
+        <ScrollView style={styles.calculatorsContainer} showsVerticalScrollIndicator={false}>
+          <EVCounter
+            pokemon={selectedPokemonData}
+            onUpdate={updatePokemon}
+            onDelete={deletePokemon}
+          />
+          <IVCalculator
+            pokemon={selectedPokemonData}
+            pokemonDetails={selectedPokemonDetails}
+          />
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Pokemon EV Counter</Text>
         <TouchableOpacity 
@@ -139,7 +163,7 @@ const HomeScreen: React.FC = () => {
         onSubmit={addPokemon}
         onClose={() => setShowForm(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -150,15 +174,15 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#667eea',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 80,
+    minHeight: 60,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#fff',
     flex: 1,
@@ -167,37 +191,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 2,
     borderColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 120,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    minWidth: 100,
     alignItems: 'center',
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   evCounterHeader: {
     backgroundColor: '#667eea',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 60,
   },
   backButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 2,
     borderColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
     alignItems: 'center',
   },
   backButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  calculatorsContainer: {
+    flex: 1,
+    flexDirection: 'column',
   },
   emptyState: {
     flex: 1,
@@ -206,13 +235,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     color: '#333',
     marginBottom: 10,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
   },
@@ -225,21 +254,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#e0e0e0',
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    padding: 12,
+    marginBottom: 10,
   },
   selectedCard: {
     borderColor: '#667eea',
     backgroundColor: 'rgba(102, 126, 234, 0.1)',
   },
   pokemonName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   evSummary: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
 });
