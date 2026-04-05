@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { Pokemon, PokemonDetails } from '../types';
+import { IV_THRESHOLDS, getIVColor, validatePokemonLevel } from '../utils/pokemonUtils';
 
 interface IVCalculatorProps {
   pokemon: Pokemon;
@@ -40,7 +41,7 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
   const [nature, setNature] = useState('neutral');
   const [calculatedIVs, setCalculatedIVs] = useState<Record<string, IVRange>>({});
 
-  const natures = [
+  const natures = useMemo(() => [
     { value: 'neutral', label: 'Neutral', boost: null, reduce: null },
     { value: 'hardy', label: 'Hardy (+Atk, -Atk)', boost: 'attack', reduce: 'attack' },
     { value: 'lonely', label: 'Lonely (+Atk, -Def)', boost: 'attack', reduce: 'defense' },
@@ -67,18 +68,18 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
     { value: 'sassy', label: 'Sassy (+SpDef, -Spd)', boost: 'spDefense', reduce: 'speed' },
     { value: 'careful', label: 'Careful (+SpDef, -SpAtk)', boost: 'spDefense', reduce: 'spAttack' },
     { value: 'quirky', label: 'Quirky (+SpDef, -SpDef)', boost: 'spDefense', reduce: 'spDefense' },
-  ];
+  ], []);
 
-  const statNames = [
+  const statNames = useMemo(() => [
     { key: 'hp' as keyof CurrentStats, label: 'HP', color: '#ff6b6b' },
     { key: 'attack' as keyof CurrentStats, label: 'Attack', color: '#f06292' },
     { key: 'defense' as keyof CurrentStats, label: 'Defense', color: '#4fc3f7' },
     { key: 'spAttack' as keyof CurrentStats, label: 'Sp. Atk', color: '#ba68c8' },
     { key: 'spDefense' as keyof CurrentStats, label: 'Sp. Def', color: '#4db6ac' },
     { key: 'speed' as keyof CurrentStats, label: 'Speed', color: '#ffd54f' },
-  ];
+  ], []);
 
-  const getBaseStat = (stat: keyof CurrentStats): number => {
+  const getBaseStat = useCallback((stat: keyof CurrentStats): number => {
     if (!pokemonDetails?.stats) return 0;
     const statMap: Record<keyof CurrentStats, string> = {
       hp: 'hp',
@@ -90,20 +91,21 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
     };
     const found = pokemonDetails.stats.find(s => s.stat.name === statMap[stat]);
     return found?.base_stat || 0;
-  };
+  }, [pokemonDetails]);
 
-  const getNatureMultiplier = (stat: keyof CurrentStats): number => {
+  const getNatureMultiplier = useCallback((stat: keyof CurrentStats): number => {
     const selectedNature = natures.find(n => n.value === nature);
     if (!selectedNature) return 1.0;
     
     if (selectedNature.boost === stat) return 1.1;
     if (selectedNature.reduce === stat) return 0.9;
     return 1.0;
-  };
+  }, [nature, natures]);
 
-  const calculateIVRange = (baseStat: number, currentStat: number, ev: number, isHP: boolean = false): IVRange => {
+  const calculateIVRange = useCallback((baseStat: number, currentStat: number, ev: number, stat: keyof CurrentStats): IVRange => {
     const levelNum = parseInt(level) || 50;
-    const natureMultiplier = getNatureMultiplier(isHP ? 'hp' : 'attack'); // Will be updated per stat
+    const isHP = stat === 'hp';
+    const natureMultiplier = getNatureMultiplier(stat);
     
     const possibleIVs: number[] = [];
     
@@ -113,8 +115,7 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
       if (isHP) {
         calculatedStat = Math.floor(((2 * baseStat + iv + Math.floor(ev / 4)) * levelNum / 100) + levelNum + 10);
       } else {
-        const statNatureMultiplier = getNatureMultiplier(isHP ? 'hp' : 'attack'); // This will be properly calculated
-        calculatedStat = Math.floor(((2 * baseStat + iv + Math.floor(ev / 4)) * levelNum / 100 + 5) * statNatureMultiplier);
+        calculatedStat = Math.floor(((2 * baseStat + iv + Math.floor(ev / 4)) * levelNum / 100 + 5) * natureMultiplier);
       }
       
       if (calculatedStat === currentStat) {
@@ -155,9 +156,9 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
       min: Math.min(...possibleIVs),
       max: Math.max(...possibleIVs),
     };
-  };
+  }, [level, getNatureMultiplier]);
 
-  const calculateAllIVRanges = () => {
+  const calculateAllIVRanges = useCallback(() => {
     if (!pokemonDetails) return;
     
     const ranges: Record<string, IVRange> = {};
@@ -167,15 +168,20 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
       const currentStat = currentStats[key];
       const ev = pokemon.evs[key];
       
-      ranges[key] = calculateIVRange(baseStat, currentStat, ev, key === 'hp');
+      ranges[key] = calculateIVRange(baseStat, currentStat, ev, key);
     });
     
     setCalculatedIVs(ranges);
-  };
+  }, [pokemonDetails, pokemon.evs, currentStats, statNames, getBaseStat, calculateIVRange]);
 
   useEffect(() => {
     calculateAllIVRanges();
-  }, [level, currentStats, nature, pokemonDetails]);
+  }, [level, currentStats, nature, pokemonDetails, calculateAllIVRanges]);
+
+  const handleLevelChange = (value: string) => {
+    const clampedValue = validatePokemonLevel(value);
+    setLevel(clampedValue.toString());
+  };
 
   const handleStatChange = (stat: keyof CurrentStats, value: string) => {
     const numValue = parseInt(value) || 0;
@@ -185,18 +191,10 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
     }));
   };
 
-  const getIVColor = (range: IVRange): string => {
-    const avg = (range.min + range.max) / 2;
-    if (avg >= 30) return '#4caf50';
-    if (avg >= 25) return '#8bc34a';
-    if (avg >= 20) return '#ffc107';
-    if (avg >= 15) return '#ff9800';
-    return '#f44336';
-  };
 
   const getTotalIVRange = (): string => {
     const ranges = Object.values(calculatedIVs);
-    if (ranges.length === 0) return '0-186';
+    if (ranges.length === 0) return `0-${IV_THRESHOLDS.MAX_TOTAL_IVS}`;
     
     const min = ranges.reduce((sum, range) => sum + range.min, 0);
     const max = ranges.reduce((sum, range) => sum + range.max, 0);
@@ -211,8 +209,8 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
     const min = ranges.reduce((sum, range) => sum + range.min, 0);
     const max = ranges.reduce((sum, range) => sum + range.max, 0);
     
-    const minPercent = (min / 186) * 100;
-    const maxPercent = (max / 186) * 100;
+    const minPercent = (min / IV_THRESHOLDS.MAX_TOTAL_IVS) * 100;
+    const maxPercent = (max / IV_THRESHOLDS.MAX_TOTAL_IVS) * 100;
     
     return `${minPercent.toFixed(1)}-${maxPercent.toFixed(1)}%`;
   };
@@ -227,7 +225,7 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
           <TextInput
             style={styles.input}
             value={level}
-            onChangeText={setLevel}
+            onChangeText={handleLevelChange}
             keyboardType="numeric"
             maxLength={3}
           />

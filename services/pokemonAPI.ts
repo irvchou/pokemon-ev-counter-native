@@ -12,7 +12,19 @@ export const pokemonAPI = {
       return response.data.results;
     } catch (error) {
       console.error('Error fetching Pokemon list:', error);
-      throw new Error('Failed to fetch Pokemon list');
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          throw new Error('Request timeout. Please check your internet connection.');
+        } else if (error.response?.status === 404) {
+          throw new Error('Pokemon service not found. Please try again later.');
+        } else if ((error.response?.status ?? 0) >= 500) {
+          throw new Error('Pokemon service is temporarily unavailable. Please try again later.');
+        } else {
+          throw new Error('Failed to fetch Pokemon list. Please check your internet connection.');
+        }
+      } else {
+        throw new Error('An unexpected error occurred while fetching Pokemon list.');
+      }
     }
   },
 
@@ -22,7 +34,19 @@ export const pokemonAPI = {
       return response.data;
     } catch (error) {
       console.error('Error fetching Pokemon details:', error);
-      throw new Error('Failed to fetch Pokemon details');
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          throw new Error('Request timeout. Please check your internet connection.');
+        } else if (error.response?.status === 404) {
+          throw new Error(`Pokemon "${name}" not found.`);
+        } else if ((error.response?.status ?? 0) >= 500) {
+          throw new Error('Pokemon service is temporarily unavailable. Please try again later.');
+        } else {
+          throw new Error(`Failed to fetch details for "${name}". Please check your internet connection.`);
+        }
+      } else {
+        throw new Error('An unexpected error occurred while fetching Pokemon details.');
+      }
     }
   }
 };

@@ -1,23 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { pokemonAPI, PokemonDetails } from '../services/pokemonAPI';
 import { Pokemon } from '../types';
+import { formatPokemonName } from '../utils/pokemonUtils';
 
 interface EVCounterProps {
   pokemon: Pokemon;
   onUpdate: (pokemon: Pokemon) => void;
   onDelete: (id: string) => void;
 }
-
-const { width } = Dimensions.get('window');
 
 const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) => {
   const [pokemonDetails, setPokemonDetails] = useState<PokemonDetails | null>(null);
@@ -96,9 +94,6 @@ const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) =>
     onUpdate(updatedPokemon);
   };
 
-  const formatPokemonName = (name: string): string => {
-    return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
-  };
 
   return (
     <View style={styles.container}>
@@ -108,7 +103,7 @@ const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) =>
             <View style={styles.imagePlaceholder}>
               <ActivityIndicator size="small" color="#667eea" />
             </View>
-          ) : pokemonDetails?.sprites.front_default ? (
+          ) : pokemonDetails?.sprites?.front_default ? (
             <Image 
               source={{ uri: pokemonDetails.sprites.front_default }}
               style={styles.pokemonImage}

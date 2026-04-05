@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
-  Modal,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Image,
-  Dimensions,
+  View,
 } from 'react-native';
-import { Pokemon, PokemonListItem, PokemonDetails } from '../types';
 import { pokemonAPI } from '../services/pokemonAPI';
+import { Pokemon, PokemonDetails, PokemonListItem } from '../types';
+import { formatPokemonName } from '../utils/pokemonUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -33,23 +34,35 @@ const PokemonForm: React.FC<PokemonFormProps> = ({ visible, onSubmit, onClose })
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    
     const fetchPokemonList = async () => {
       try {
         setLoading(true);
         const list = await pokemonAPI.getAllPokemon();
-        setPokemonList(list);
-        setFilteredPokemon(list);
+        if (!cancelled) {
+          setPokemonList(list);
+          setFilteredPokemon(list);
+        }
       } catch (error) {
-        Alert.alert('Error', 'Failed to load Pokemon list');
-        console.error(error);
+        if (!cancelled) {
+          Alert.alert('Error', 'Failed to load Pokemon list');
+          console.error(error);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     if (visible) {
       fetchPokemonList();
     }
+    
+    return () => {
+      cancelled = true;
+    };
   }, [visible]);
 
   useEffect(() => {
@@ -87,9 +100,6 @@ const PokemonForm: React.FC<PokemonFormProps> = ({ visible, onSubmit, onClose })
     }
   };
 
-  const formatPokemonName = (name: string): string => {
-    return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
-  };
 
   const getStatColor = (stat: number): string => {
     if (stat >= 120) return '#4caf50';

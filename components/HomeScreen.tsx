@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pokemon } from '../types';
+import { formatPokemonName } from '../utils/pokemonUtils';
 import EVCounter from './EVCounter';
 import IVCalculator from './IVCalculator';
 import PokemonForm from './PokemonForm';
@@ -74,11 +75,13 @@ const HomeScreen: React.FC = () => {
     const pokemon = pokemons.find(p => p.id === pokemonId);
     if (pokemon) {
       try {
-        const { pokemonAPI } = await import('../services/pokemonAPI');
+        const pokemonAPI = await import('../services/pokemonAPI').then(module => module.pokemonAPI);
         const details = await pokemonAPI.getPokemonDetails(pokemon.name);
         setSelectedPokemonDetails(details);
       } catch (error) {
         console.error('Error fetching Pokemon details:', error);
+        // Set null to indicate loading failed but don't crash the app
+        setSelectedPokemonDetails(null);
       }
     }
   };
@@ -89,9 +92,6 @@ const HomeScreen: React.FC = () => {
     setSelectedPokemonDetails(null);
   };
 
-  const formatPokemonName = (name: string): string => {
-    return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
-  };
 
   const renderPokemonItem = ({ item }: { item: Pokemon }) => (
     <TouchableOpacity
