@@ -47,8 +47,8 @@ A comprehensive mobile app for tracking and calculating Effort Values (EVs) and 
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/irvchou/pokemon-ev-counter-native.git
-   cd pokemon-ev-counter-native
+   git clone https://github.com/irvchou/pokemon-ev-tracker-iv-calculator.git
+   cd pokemon-ev-tracker-iv-calculator
    ```
 
 2. Install dependencies

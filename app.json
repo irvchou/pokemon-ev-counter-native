@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "pokemon-ev-counter-native",
-    "slug": "pokemon-ev-counter-native",
+    "name": "pokemon-ev-tracker-iv-calculator",
+    "slug": "pokemon-ev-tracker-iv-calculator",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "pokemonevcounternative",
+    "scheme": "pokemonevtrackerivcalculator",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
