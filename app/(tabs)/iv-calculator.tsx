@@ -2,19 +2,23 @@ import React, { useState } from 'react';
 import {
     Alert,
     FlatList,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Pokemon } from '../types';
-import { formatPokemonName } from '../utils/pokemonUtils';
-import PokemonForm from './PokemonForm';
+import { Pokemon } from '../../types';
+import { formatPokemonName } from '../../utils/pokemonUtils';
+import IVCalculator from '../../components/IVCalculator';
+import PokemonForm from '../../components/PokemonForm';
 
-const HomeScreen: React.FC = () => {
+const IVCalculatorTab: React.FC = () => {
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [selectedPokemon, setSelectedPokemon] = useState<string | null>(null);
+  const [selectedPokemonDetails, setSelectedPokemonDetails] = useState<any>(null);
 
   const addPokemon = (pokemonData: { name: string }) => {
     const newPokemon: Pokemon = {
@@ -33,6 +37,10 @@ const HomeScreen: React.FC = () => {
     setPokemons([...pokemons, newPokemon]);
   };
 
+  const updatePokemon = (updatedPokemon: Pokemon) => {
+    setPokemons(pokemons.map(p => p.id === updatedPokemon.id ? updatedPokemon : p));
+  };
+
   const deletePokemon = (id: string) => {
     Alert.alert(
       'Delete Pokemon',
@@ -44,29 +52,78 @@ const HomeScreen: React.FC = () => {
           style: 'destructive',
           onPress: () => {
             setPokemons(pokemons.filter(p => p.id !== id));
+            if (selectedPokemon === id) {
+              setSelectedPokemon(null);
+              setSelectedPokemonDetails(null);
+            }
           },
         },
       ]
     );
   };
 
+  const selectedPokemonData = pokemons.find(p => p.id === selectedPokemon);
+
+  const handlePokemonSelect = async (pokemonId: string) => {
+    setSelectedPokemon(pokemonId);
+    
+    // Fetch Pokemon details for IV calculator
+    const pokemon = pokemons.find(p => p.id === pokemonId);
+    if (pokemon) {
+      try {
+        const pokemonAPI = await import('../../services/pokemonAPI').then(module => module.pokemonAPI);
+        const details = await pokemonAPI.getPokemonDetails(pokemon.name);
+        setSelectedPokemonDetails(details);
+      } catch (error) {
+        console.error('Error fetching Pokemon details:', error);
+        // Set null to indicate loading failed but don't crash the app
+        setSelectedPokemonDetails(null);
+      }
+    }
+  };
+
+  const handleBackToList = () => {
+    setSelectedPokemon(null);
+    setSelectedPokemonDetails(null);
+  };
+
   const renderPokemonItem = ({ item }: { item: Pokemon }) => (
-    <View style={styles.pokemonCard}>
+    <TouchableOpacity
+      style={[
+        styles.pokemonCard,
+        selectedPokemon === item.id && styles.selectedCard
+      ]}
+      onPress={() => handlePokemonSelect(item.id)}
+    >
       <Text style={styles.pokemonName}>{formatPokemonName(item.name)}</Text>
       <Text style={styles.evSummary}>Total EVs: {item.totalEVs}/510</Text>
-      <TouchableOpacity 
-        style={styles.deleteButton} 
-        onPress={() => deletePokemon(item.id)}
-      >
-        <Text style={styles.deleteButtonText}>Delete</Text>
-      </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
+
+  if (selectedPokemonData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackToList}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>IV Calculator</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <ScrollView style={styles.calculatorContainer} showsVerticalScrollIndicator={false}>
+          <IVCalculator
+            pokemon={selectedPokemonData}
+            pokemonDetails={selectedPokemonDetails}
+          />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Pokemon EV/IV Counter</Text>
+        <Text style={styles.title}>IV Calculator</Text>
         <TouchableOpacity 
           style={styles.addButton} 
           onPress={() => setShowForm(true)}
@@ -75,30 +132,21 @@ const HomeScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>
-          Use the tabs below to access EV and IV calculators for your Pokemon.
-        </Text>
-      </View>
-
       {pokemons.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No Pokemon Yet!</Text>
           <Text style={styles.emptyText}>
-            Start by adding your first Pokemon to track EVs and calculate IVs.
+            Start by adding your first Pokemon to calculate IVs.
           </Text>
         </View>
       ) : (
-        <View style={styles.listContainer}>
-          <Text style={styles.sectionTitle}>Your Pokemon ({pokemons.length})</Text>
-          <FlatList
-            data={pokemons}
-            renderItem={renderPokemonItem}
-            keyExtractor={(item) => item.id}
-            style={styles.pokemonList}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
+        <FlatList
+          data={pokemons}
+          renderItem={renderPokemonItem}
+          keyExtractor={(item) => item.id}
+          style={styles.pokemonList}
+          showsVerticalScrollIndicator={false}
+        />
       )}
 
       <PokemonForm
@@ -129,6 +177,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
     flex: 1,
+    textAlign: 'center',
   },
   addButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -145,29 +194,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  infoContainer: {
-    backgroundColor: '#e8f4fd',
-    padding: 15,
-    margin: 10,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#667eea',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
-  },
-  listContainer: {
-    flex: 1,
+  backButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 2,
+    borderColor: '#fff',
     paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 16,
+  backButtonText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
-    paddingHorizontal: 5,
+  },
+  placeholder: {
+    width: 100,
+  },
+  calculatorContainer: {
+    flex: 1,
   },
   emptyState: {
     flex: 1,
@@ -188,6 +233,7 @@ const styles = StyleSheet.create({
   },
   pokemonList: {
     flex: 1,
+    paddingHorizontal: 10,
   },
   pokemonCard: {
     backgroundColor: '#fff',
@@ -196,32 +242,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  },
+  selectedCard: {
+    borderColor: '#667eea',
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
   },
   pokemonName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    flex: 1,
+    marginBottom: 4,
   },
   evSummary: {
     fontSize: 12,
     color: '#666',
-    marginRight: 10,
-  },
-  deleteButton: {
-    backgroundColor: '#ff4757',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });
 
-export default HomeScreen;
+export default IVCalculatorTab;

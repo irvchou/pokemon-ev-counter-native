@@ -24,6 +24,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="ev-calculator"
+        options={{
+          title: 'EV Calculator',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="iv-calculator"
+        options={{
+          title: 'IV Calculator',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="function" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: 'Explore',

@@ -1,3 +1,4 @@
+import { Picker } from '@react-native-picker/picker';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -233,12 +234,22 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
         
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Nature:</Text>
-          <TextInput
-            style={styles.input}
-            value={nature}
-            onChangeText={setNature}
-            placeholder="neutral"
-          />
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={nature}
+              onValueChange={(itemValue: string) => setNature(itemValue)}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+            >
+              {natures.map((natureOption) => (
+                <Picker.Item
+                  key={natureOption.value}
+                  label={natureOption.label}
+                  value={natureOption.value}
+                />
+              ))}
+            </Picker>
+          </View>
         </View>
         
         <View style={styles.summaryRow}>
@@ -416,6 +427,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#666',
     flex: 1,
+  },
+  pickerContainer: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    backgroundColor: '#f8f9fa',
+  },
+  picker: {
+    height: 36,
+  },
+  pickerItem: {
+    height: 36,
+    fontSize: 12,
   },
 });
 
