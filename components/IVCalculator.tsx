@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Pokemon, PokemonDetails } from '../types';
@@ -40,37 +38,35 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
     spDefense: 0,
     speed: 0,
   });
-  const [nature, setNature] = useState('neutral');
   const [calculatedIVs, setCalculatedIVs] = useState<Record<string, IVRange>>({});
-  const [showNatureModal, setShowNatureModal] = useState(false);
 
   const natures = useMemo(() => [
     { value: 'neutral', label: 'Neutral', boost: null, reduce: null },
-    { value: 'hardy', label: 'Hardy (+Atk, -Atk)', boost: 'attack', reduce: 'attack' },
+    { value: 'hardy', label: 'Hardy', boost: null, reduce: null },
     { value: 'lonely', label: 'Lonely (+Atk, -Def)', boost: 'attack', reduce: 'defense' },
     { value: 'brave', label: 'Brave (+Atk, -Spd)', boost: 'attack', reduce: 'speed' },
     { value: 'adamant', label: 'Adamant (+Atk, -SpAtk)', boost: 'attack', reduce: 'spAttack' },
     { value: 'naughty', label: 'Naughty (+Atk, -SpDef)', boost: 'attack', reduce: 'spDefense' },
     { value: 'bold', label: 'Bold (+Def, -Atk)', boost: 'defense', reduce: 'attack' },
-    { value: 'docile', label: 'Docile (+Def, -Def)', boost: 'defense', reduce: 'defense' },
+    { value: 'docile', label: 'Docile', boost: null, reduce: null },
     { value: 'relaxed', label: 'Relaxed (+Def, -Spd)', boost: 'defense', reduce: 'speed' },
     { value: 'impish', label: 'Impish (+Def, -SpAtk)', boost: 'defense', reduce: 'spAttack' },
     { value: 'lax', label: 'Lax (+Def, -SpDef)', boost: 'defense', reduce: 'spDefense' },
     { value: 'timid', label: 'Timid (+Spd, -Atk)', boost: 'speed', reduce: 'attack' },
     { value: 'hasty', label: 'Hasty (+Spd, -Def)', boost: 'speed', reduce: 'defense' },
-    { value: 'serious', label: 'Serious (+Spd, -Spd)', boost: 'speed', reduce: 'speed' },
+    { value: 'serious', label: 'Serious', boost: null, reduce: null },
     { value: 'jolly', label: 'Jolly (+Spd, -SpAtk)', boost: 'speed', reduce: 'spAttack' },
     { value: 'naive', label: 'Naive (+Spd, -SpDef)', boost: 'speed', reduce: 'spDefense' },
     { value: 'modest', label: 'Modest (+SpAtk, -Atk)', boost: 'spAttack', reduce: 'attack' },
     { value: 'mild', label: 'Mild (+SpAtk, -Def)', boost: 'spAttack', reduce: 'defense' },
     { value: 'quiet', label: 'Quiet (+SpAtk, -Spd)', boost: 'spAttack', reduce: 'speed' },
-    { value: 'bashful', label: 'Bashful (+SpAtk, -SpAtk)', boost: 'spAttack', reduce: 'spAttack' },
+    { value: 'bashful', label: 'Bashful', boost: null, reduce: null },
     { value: 'rash', label: 'Rash (+SpAtk, -SpDef)', boost: 'spAttack', reduce: 'spDefense' },
     { value: 'calm', label: 'Calm (+SpDef, -Atk)', boost: 'spDefense', reduce: 'attack' },
     { value: 'gentle', label: 'Gentle (+SpDef, -Def)', boost: 'spDefense', reduce: 'defense' },
     { value: 'sassy', label: 'Sassy (+SpDef, -Spd)', boost: 'spDefense', reduce: 'speed' },
     { value: 'careful', label: 'Careful (+SpDef, -SpAtk)', boost: 'spDefense', reduce: 'spAttack' },
-    { value: 'quirky', label: 'Quirky (+SpDef, -SpDef)', boost: 'spDefense', reduce: 'spDefense' },
+    { value: 'quirky', label: 'Quirky', boost: null, reduce: null },
   ], []);
 
   const statNames = useMemo(() => [
@@ -97,13 +93,19 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
   }, [pokemonDetails]);
 
   const getNatureMultiplier = useCallback((stat: keyof CurrentStats): number => {
-    const selectedNature = natures.find(n => n.value === nature);
+    const selectedNature = natures.find(n => n.value === (pokemon.nature || 'neutral'));
     if (!selectedNature) return 1.0;
     
     if (selectedNature.boost === stat) return 1.1;
     if (selectedNature.reduce === stat) return 0.9;
     return 1.0;
-  }, [nature, natures]);
+  }, [pokemon.nature, natures]);
+
+  const getAdjustedBaseStat = useCallback((stat: keyof CurrentStats): number => {
+    const baseStat = getBaseStat(stat);
+    const natureMultiplier = getNatureMultiplier(stat);
+    return Math.floor(baseStat * natureMultiplier);
+  }, [getBaseStat, getNatureMultiplier]);
 
   const calculateIVRange = useCallback((baseStat: number, currentStat: number, ev: number, stat: keyof CurrentStats): IVRange => {
     const levelNum = parseInt(level) || 50;
@@ -179,7 +181,7 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
 
   useEffect(() => {
     calculateAllIVRanges();
-  }, [level, currentStats, nature, pokemonDetails, calculateAllIVRanges]);
+  }, [level, currentStats, pokemon.nature, pokemonDetails, calculateAllIVRanges]);
 
   const handleLevelChange = (value: string) => {
     const clampedValue = validatePokemonLevel(value);
@@ -236,15 +238,11 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
         
         <View style={styles.inputRow}>
           <Text style={styles.inputLabel}>Nature:</Text>
-          <TouchableOpacity 
-            style={styles.dropdownButton}
-            onPress={() => setShowNatureModal(true)}
-          >
-            <Text style={styles.dropdownText}>
-              {natures.find(n => n.value === nature)?.label || 'Select Nature'}
+          <View style={styles.natureDisplay}>
+            <Text style={styles.natureText}>
+              {natures.find(n => n.value === (pokemon.nature || 'neutral'))?.label || 'Neutral'}
             </Text>
-            <Text style={styles.dropdownArrow}>▼</Text>
-          </TouchableOpacity>
+          </View>
         </View>
         
         <View style={styles.summaryRow}>
@@ -276,7 +274,14 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
               <View style={styles.statDetails}>
                 <View style={styles.statInputRow}>
                   <Text style={styles.inputLabelSmall}>Base:</Text>
-                  <Text style={styles.baseStatValue}>{baseStat}</Text>
+                  <Text style={styles.baseStatValue}>
+                    {getAdjustedBaseStat(key)}
+                    {getNatureMultiplier(key) !== 1.0 && (
+                      <Text style={styles.natureModifier}>
+                        ({getNatureMultiplier(key) > 1.0 ? '+' : ''}{Math.round((getNatureMultiplier(key) - 1) * 100)}%)
+                      </Text>
+                    )}
+                  </Text>
                 </View>
                 
                 <View style={styles.statInputRow}>
@@ -302,46 +307,6 @@ const IVCalculator: React.FC<IVCalculatorProps> = ({ pokemon, pokemonDetails }) 
           );
         })}
       </ScrollView>
-      
-      <Modal
-        visible={showNatureModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowNatureModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Nature</Text>
-              <TouchableOpacity onPress={() => setShowNatureModal(false)}>
-                <Text style={styles.modalCloseButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.natureList}>
-              {natures.map((item: any) => (
-                <TouchableOpacity
-                  key={item.value}
-                  style={[
-                    styles.natureOption,
-                    nature === item.value && styles.selectedNatureOption
-                  ]}
-                  onPress={() => {
-                    setNature(item.value);
-                    setShowNatureModal(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.natureOptionText,
-                    nature === item.value && styles.selectedNatureOptionText
-                  ]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -452,6 +417,11 @@ const styles = StyleSheet.create({
     color: '#666',
     flex: 1,
   },
+  natureModifier: {
+    fontSize: 9,
+    color: '#667eea',
+    fontWeight: '600',
+  },
   ivRangeText: {
     fontSize: 10,
     fontWeight: '600',
@@ -553,6 +523,21 @@ const styles = StyleSheet.create({
   selectedNatureOptionText: {
     color: '#667eea',
     fontWeight: '600',
+  },
+  natureDisplay: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    height: 40,
+    justifyContent: 'center',
+  },
+  natureText: {
+    fontSize: 12,
+    color: '#333',
   },
 });
 
