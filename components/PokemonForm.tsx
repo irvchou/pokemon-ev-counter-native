@@ -47,7 +47,6 @@ const PokemonForm: React.FC<PokemonFormProps> = ({ visible, onSubmit, onClose })
       } catch (error) {
         if (!cancelled) {
           Alert.alert('Error', 'Failed to load Pokemon list');
-          console.error(error);
         }
       } finally {
         if (!cancelled) {
@@ -78,7 +77,7 @@ const PokemonForm: React.FC<PokemonFormProps> = ({ visible, onSubmit, onClose })
       const details = await pokemonAPI.getPokemonDetails(pokemon.name);
       setSelectedPokemonDetails(details);
     } catch (error) {
-      console.error('Error fetching Pokemon details:', error);
+      // Error fetching Pokemon details
     } finally {
       setLoadingDetails(false);
     }
@@ -92,7 +91,10 @@ const PokemonForm: React.FC<PokemonFormProps> = ({ visible, onSubmit, onClose })
 
   const handleSubmit = () => {
     if (selectedPokemon) {
-      onSubmit({ name: selectedPokemon.name });
+      onSubmit({ 
+        name: selectedPokemon.name,
+        nature: 'neutral'
+      });
       setSelectedPokemon(null);
       setSelectedPokemonDetails(null);
       setSearchTerm('');

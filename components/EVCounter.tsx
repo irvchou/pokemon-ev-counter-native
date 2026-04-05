@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { pokemonAPI, PokemonDetails } from '../services/pokemonAPI';
 import { Pokemon } from '../types';
@@ -20,6 +22,74 @@ interface EVCounterProps {
 const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) => {
   const [pokemonDetails, setPokemonDetails] = useState<PokemonDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [showNatureModal, setShowNatureModal] = useState(false);
+
+  const natures = useMemo(() => [
+    { value: 'neutral', label: 'Neutral', boost: null, reduce: null },
+    { value: 'hardy', label: 'Hardy', boost: null, reduce: null },
+    { value: 'lonely', label: 'Lonely (+Atk, -Def)', boost: 'attack', reduce: 'defense' },
+    { value: 'brave', label: 'Brave (+Atk, -Spd)', boost: 'attack', reduce: 'speed' },
+    { value: 'adamant', label: 'Adamant (+Atk, -SpAtk)', boost: 'attack', reduce: 'spAttack' },
+    { value: 'naughty', label: 'Naughty (+Atk, -SpDef)', boost: 'attack', reduce: 'spDefense' },
+    { value: 'bold', label: 'Bold (+Def, -Atk)', boost: 'defense', reduce: 'attack' },
+    { value: 'docile', label: 'Docile', boost: null, reduce: null },
+    { value: 'relaxed', label: 'Relaxed (+Def, -Spd)', boost: 'defense', reduce: 'speed' },
+    { value: 'impish', label: 'Impish (+Def, -SpAtk)', boost: 'defense', reduce: 'spAttack' },
+    { value: 'lax', label: 'Lax (+Def, -SpDef)', boost: 'defense', reduce: 'spDefense' },
+    { value: 'timid', label: 'Timid (+Spd, -Atk)', boost: 'speed', reduce: 'attack' },
+    { value: 'hasty', label: 'Hasty (+Spd, -Def)', boost: 'speed', reduce: 'defense' },
+    { value: 'serious', label: 'Serious', boost: null, reduce: null },
+    { value: 'jolly', label: 'Jolly (+Spd, -SpAtk)', boost: 'speed', reduce: 'spAttack' },
+    { value: 'naive', label: 'Naive (+Spd, -SpDef)', boost: 'speed', reduce: 'spDefense' },
+    { value: 'modest', label: 'Modest (+SpAtk, -Atk)', boost: 'spAttack', reduce: 'attack' },
+    { value: 'mild', label: 'Mild (+SpAtk, -Def)', boost: 'spAttack', reduce: 'defense' },
+    { value: 'quiet', label: 'Quiet (+SpAtk, -Spd)', boost: 'spAttack', reduce: 'speed' },
+    { value: 'bashful', label: 'Bashful', boost: null, reduce: null },
+    { value: 'rash', label: 'Rash (+SpAtk, -SpDef)', boost: 'spAttack', reduce: 'spDefense' },
+    { value: 'calm', label: 'Calm (+SpDef, -Atk)', boost: 'spDefense', reduce: 'attack' },
+    { value: 'gentle', label: 'Gentle (+SpDef, -Def)', boost: 'spDefense', reduce: 'defense' },
+    { value: 'sassy', label: 'Sassy (+SpDef, -Spd)', boost: 'spDefense', reduce: 'speed' },
+    { value: 'careful', label: 'Careful (+SpDef, -SpAtk)', boost: 'spDefense', reduce: 'spAttack' },
+    { value: 'quirky', label: 'Quirky', boost: null, reduce: null },
+  ], []);
+
+  const getBaseStat = useCallback((stat: keyof Pokemon['evs']): number => {
+    if (!pokemonDetails?.stats) return 0;
+    const statMap: Record<keyof Pokemon['evs'], string> = {
+      hp: 'hp',
+      attack: 'attack',
+      defense: 'defense',
+      spAttack: 'special-attack',
+      spDefense: 'special-defense',
+      speed: 'speed',
+    };
+    const found = pokemonDetails.stats.find(s => s.stat.name === statMap[stat]);
+    return found?.base_stat || 0;
+  }, [pokemonDetails]);
+
+  const getNatureMultiplier = useCallback((stat: keyof Pokemon['evs']): number => {
+    const selectedNature = natures.find(n => n.value === (pokemon.nature || 'neutral'));
+    if (!selectedNature) return 1.0;
+    
+    if (selectedNature.boost === stat) return 1.1;
+    if (selectedNature.reduce === stat) return 0.9;
+    return 1.0;
+  }, [pokemon.nature, natures]);
+
+  const getAdjustedBaseStat = useCallback((stat: keyof Pokemon['evs']): number => {
+    const baseStat = getBaseStat(stat);
+    const natureMultiplier = getNatureMultiplier(stat);
+    const adjustedStat = Math.floor(baseStat * natureMultiplier);
+    return adjustedStat;
+  }, [getBaseStat, getNatureMultiplier]);
+
+  const updatePokemonNature = useCallback((newNature: string) => {
+    const updatedPokemon = {
+      ...pokemon,
+      nature: newNature,
+    };
+    onUpdate(updatedPokemon);
+  }, [pokemon, onUpdate]);
 
   useEffect(() => {
     const fetchPokemonDetails = async () => {
@@ -28,7 +98,7 @@ const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) =>
         const details = await pokemonAPI.getPokemonDetails(pokemon.name);
         setPokemonDetails(details);
       } catch (error) {
-        console.error('Error fetching Pokemon details:', error);
+        // Error fetching Pokemon details
       } finally {
         setLoadingDetails(false);
       }
@@ -132,10 +202,33 @@ const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) =>
         </View>
       </View>
 
+      <View style={styles.natureContainer}>
+        <Text style={styles.natureLabel}>Nature:</Text>
+        <TouchableOpacity 
+          style={styles.natureButton}
+          onPress={() => {
+            setShowNatureModal(true);
+          }}
+        >
+          <Text style={styles.natureButtonText}>
+            {natures.find(n => n.value === (pokemon.nature || 'neutral'))?.label || 'Select Nature'}
+          </Text>
+          <Text style={styles.natureButtonArrow}>▼</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.statsGrid}>
         {statButtons.map(({ stat, label, color }) => (
           <View key={stat} style={styles.statCard}>
             <Text style={[styles.statLabel, { color }]}>{label}</Text>
+            <Text style={styles.baseStatText}>
+              Base: {getAdjustedBaseStat(stat)} 
+              {getNatureMultiplier(stat) !== 1.0 && (
+                <Text style={styles.natureModifier}>
+                  ({getNatureMultiplier(stat) > 1.0 ? '+' : ''}{Math.round((getNatureMultiplier(stat) - 1) * 100)}%)
+                </Text>
+              )}
+            </Text>
             <View style={styles.evControls}>
               <TouchableOpacity 
                 style={[styles.evButton, styles.decrementButton]}
@@ -175,6 +268,48 @@ const EVCounter: React.FC<EVCounterProps> = ({ pokemon, onUpdate, onDelete }) =>
       <TouchableOpacity style={styles.resetButton} onPress={resetEVs}>
         <Text style={styles.resetButtonText}>Reset All EVs</Text>
       </TouchableOpacity>
+      
+      <Modal
+        visible={showNatureModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowNatureModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Nature</Text>
+              <TouchableOpacity onPress={() => {
+            setShowNatureModal(false);
+          }}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.natureList}>
+              {natures.map((item: any) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.natureOption,
+                    (pokemon.nature || 'neutral') === item.value && styles.selectedNatureOption
+                  ]}
+                  onPress={() => {
+                    updatePokemonNature(item.value);
+                    setShowNatureModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.natureOptionText,
+                    (pokemon.nature || 'neutral') === item.value && styles.selectedNatureOptionText
+                  ]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -328,6 +463,111 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  natureContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 5,
+  },
+  natureLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    width: 50,
+  },
+  natureButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 6,
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    height: 36,
+  },
+  natureButtonText: {
+    fontSize: 12,
+    color: '#333',
+    flex: 1,
+  },
+  natureButtonArrow: {
+    fontSize: 12,
+    color: '#667eea',
+    marginLeft: 5,
+  },
+  baseStatText: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  natureModifier: {
+    fontSize: 9,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '70%',
+    minHeight: 300,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  modalCloseButton: {
+    fontSize: 18,
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  natureList: {
+    flex: 1,
+    maxHeight: 350,
+  },
+  natureOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedNatureOption: {
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+  },
+  natureOptionText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectedNatureOptionText: {
+    color: '#667eea',
     fontWeight: '600',
   },
 });
